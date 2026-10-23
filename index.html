@@ -1,0 +1,1547 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Estudio 3D de Sublimación - Cuaderno Doble Anillo</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js & OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0b0f19;
+      color: #f1f5f9;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+    }
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    /* Custom Range Sliders */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      background: #1e293b;
+      height: 6px;
+      border-radius: 999px;
+      border: 1px solid #334155;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      margin-top: -5px;
+      background-color: #38bdf8;
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+      background-color: #7dd3fc;
+    }
+    .checkerboard-bg {
+      background-color: #182234;
+      background-image: 
+        linear-gradient(45deg, #1e293b 25%, transparent 25%), 
+        linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, #1e293b 75%), 
+        linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    }
+    #editor2dCanvas {
+      touch-action: none;
+    }
+    #canvas3dContainer canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+      outline: none;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-col overflow-hidden bg-slate-950 text-slate-100">
+
+  <!-- BARRA SUPERIOR -->
+  <header class="h-14 shrink-0 bg-slate-900/95 border-b border-slate-800 px-3 sm:px-5 flex items-center justify-between z-30">
+    <div class="flex items-center gap-2.5">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20">
+        <i data-lucide="book-open-check" class="w-5 h-5 text-white"></i>
+      </div>
+      <div>
+        <h1 class="text-sm sm:text-base font-bold tracking-tight text-white flex items-center gap-2">
+          Sublima3D <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30">Cuaderno Doble Anillo</span>
+        </h1>
+        <p class="text-[11px] text-slate-400 hidden xl:block">Personaliza Portada (Adelante) y Contraportada (Atrás) en 360°</p>
+      </div>
+    </div>
+
+    <!-- Selector Rápido de Cara en Barra Superior (Adelante / Atrás) -->
+    <div class="hidden md:flex items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700">
+      <button id="headerBtnFront" onclick="selectCoverSide('front', true)" class="px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 bg-sky-500 text-slate-950 shadow">
+        <i data-lucide="book" class="w-3.5 h-3.5"></i> Parte de Adelante (Portada)
+      </button>
+      <button id="headerBtnBack" onclick="selectCoverSide('back', true)" class="px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 text-slate-300 hover:text-white">
+        <i data-lucide="flip-horizontal-2" class="w-3.5 h-3.5"></i> Parte de Atrás (Contraportada)
+      </button>
+    </div>
+
+    <!-- Selector de Modo de Vista en Móvil / Tablet -->
+    <div class="flex lg:hidden items-center bg-slate-800/90 p-1 rounded-xl border border-slate-700">
+      <button id="tabBtn2D" onclick="setMobileView('2d')" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 text-slate-300">
+        <i data-lucide="crop" class="w-3.5 h-3.5"></i> 1. Ajustar
+      </button>
+      <button id="tabBtnSplit" onclick="setMobileView('split')" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 bg-sky-500 text-slate-950 shadow">
+        <i data-lucide="columns" class="w-3.5 h-3.5"></i> Ambos
+      </button>
+      <button id="tabBtn3D" onclick="setMobileView('3d')" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 text-slate-300">
+        <i data-lucide="box" class="w-3.5 h-3.5"></i> 2. Ver 3D
+      </button>
+    </div>
+
+    <!-- Botones de Acción Rápida -->
+    <div class="flex items-center gap-2">
+      <label for="imageUploadInput" class="cursor-pointer bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 active:scale-95 text-white font-semibold text-xs sm:text-sm px-3 sm:px-4 py-2 rounded-xl shadow-lg shadow-sky-500/20 flex items-center gap-1.5 transition-all">
+        <i data-lucide="upload" class="w-4 h-4"></i>
+        <span>Subir Imagen</span>
+      </label>
+      <input id="imageUploadInput" type="file" accept="image/*" class="hidden" />
+
+      <button onclick="export3DRender()" title="Guardar foto del cuaderno 3D" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs sm:text-sm font-medium px-2.5 sm:px-3 py-2 rounded-xl flex items-center gap-1.5 transition-all">
+        <i data-lucide="camera" class="w-4 h-4 text-sky-400"></i>
+        <span class="hidden md:inline">Capturar 3D</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- CONTENEDOR PRINCIPAL -->
+  <main class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+
+    <!-- PANEL IZQUIERDO: PASO 1 - MOLDE 2D Y AJUSTE DE IMAGEN A LA FORMA DEL CUADERNO -->
+    <section id="panel2D" class="w-full lg:w-[440px] xl:w-[480px] shrink-0 h-1/2 lg:h-full bg-slate-900/90 border-b lg:border-b-0 lg:border-r border-slate-800 flex flex-col overflow-hidden z-20">
+      
+      <!-- Sub-cabecera del Editor 2D -->
+      <div class="px-4 py-2.5 bg-slate-900 border-b border-slate-800 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="w-5 h-5 rounded-full bg-sky-500/20 text-sky-400 text-xs font-bold flex items-center justify-center border border-sky-500/40">1</span>
+          <h2 id="editor2dHeaderTitle" class="text-xs sm:text-sm font-semibold text-slate-200">Molde 2D: Parte de Adelante</h2>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button onclick="loadSampleDesign(1)" class="text-[11px] px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">Ejemplo 1</button>
+          <button onclick="loadSampleDesign(2)" class="text-[11px] px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition">Ejemplo 2</button>
+        </div>
+      </div>
+
+      <!-- Selector de Cara (Adelante / Atrás) en el Panel 2D -->
+      <div class="px-3 sm:px-4 pt-3 pb-2 bg-slate-900/60 border-b border-slate-800/80 shrink-0 space-y-2">
+        <div class="grid grid-cols-2 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+          <button id="panelBtnFront" onclick="selectCoverSide('front', true)" class="py-1.5 px-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 bg-sky-500 text-slate-950 shadow">
+            <i data-lucide="book" class="w-3.5 h-3.5"></i> Adelante (Portada)
+          </button>
+          <button id="panelBtnBack" onclick="selectCoverSide('back', true)" class="py-1.5 px-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 text-slate-300 hover:text-white">
+            <i data-lucide="flip-horizontal-2" class="w-3.5 h-3.5"></i> Atrás (Contraportada)
+          </button>
+        </div>
+        <div class="flex items-center justify-between gap-2">
+          <span id="activeSideBadge" class="text-[11px] text-sky-400 font-medium flex items-center gap-1">
+            <i data-lucide="edit-3" class="w-3 h-3"></i> Editando: Parte de Adelante (Anillos a la izquierda)
+          </span>
+          <button onclick="copyFrontToBack()" title="Copia la imagen y ajustes de Adelante hacia la Parte de Atrás" class="text-[11px] px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 font-medium flex items-center gap-1 transition active:scale-95 shrink-0">
+            <i data-lucide="copy" class="w-3 h-3"></i> Copiar Adelante a Atrás
+          </button>
+        </div>
+      </div>
+
+      <!-- Cuerpo deslizable con Lienzo 2D + Controles -->
+      <div class="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4">
+        
+        <!-- Lienzo Interactivo 2D (Plantilla del Cuaderno con las 10 perforaciones) -->
+        <div class="flex flex-col items-center">
+          <div class="relative checkerboard-bg rounded-2xl p-3 border border-slate-700/80 shadow-inner flex flex-col items-center justify-center w-full">
+            <div class="flex items-center justify-between w-full mb-2 px-1">
+              <span class="text-[11px] text-slate-400 flex items-center gap-1">
+                <i data-lucide="hand" class="w-3.5 h-3.5 text-sky-400"></i> Arrastra la imagen para moverla
+              </span>
+              <label class="flex items-center gap-1.5 text-[11px] text-slate-300 cursor-pointer">
+                <input type="checkbox" id="showGuidesToggle" checked onchange="render2DTemplate()" class="rounded bg-slate-800 border-slate-600 text-sky-500 focus:ring-0" />
+                Guía de perforaciones
+              </label>
+            </div>
+
+            <!-- Canvas 2D del Molde -->
+            <div class="relative flex items-center justify-center">
+              <canvas id="editor2dCanvas" width="500" height="740" class="w-[165px] sm:w-[200px] lg:w-[220px] aspect-[500/740] rounded-lg shadow-2xl cursor-move border border-slate-600/60"></canvas>
+            </div>
+
+            <p id="holesSideHint" class="text-[11px] text-slate-400 mt-2 text-center">
+              Los círculos izquierdos indican dónde van los <strong>2 grupos de 5 anillos negros</strong>.
+            </p>
+          </div>
+        </div>
+
+        <!-- BOTONES RÁPIDOS DE ENCAJE AL CUADERNO -->
+        <div class="bg-slate-800/50 rounded-2xl p-3 border border-slate-800 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+              <i data-lucide="maximize-2" class="w-3.5 h-3.5 text-sky-400"></i> Adaptar a la forma del cuaderno
+            </span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="fitImageMode('stretch')" class="px-2.5 py-2 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/40 text-sky-300 text-xs font-medium flex items-center justify-center gap-1.5 transition active:scale-95">
+              <i data-lucide="move-diagonal" class="w-3.5 h-3.5"></i> Estirar al Molde
+            </button>
+            <button onclick="fitImageMode('cover')" class="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium flex items-center justify-center gap-1.5 transition active:scale-95">
+              <i data-lucide="expand" class="w-3.5 h-3.5 text-indigo-400"></i> Cubrir Portada
+            </button>
+            <button onclick="fitImageMode('contain')" class="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium flex items-center justify-center gap-1.5 transition active:scale-95">
+              <i data-lucide="shrink" class="w-3.5 h-3.5 text-emerald-400"></i> Encajar Completa
+            </button>
+            <button onclick="fitImageMode('center')" class="px-2.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-medium flex items-center justify-center gap-1.5 transition active:scale-95">
+              <i data-lucide="align-center-Abc" class="w-3.5 h-3.5 text-amber-400"></i> Centrar Imagen
+            </button>
+          </div>
+        </div>
+
+        <!-- DESLIZADORES DE TAMAÑO, DEFORMACIÓN LIBRE Y POSICIÓN -->
+        <div class="bg-slate-800/50 rounded-2xl p-3.5 border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+              <i data-lucide="sliders" class="w-3.5 h-3.5 text-sky-400"></i> Ajuste Manual de Imagen
+            </span>
+            <button onclick="resetImageTransforms()" class="text-[11px] text-sky-400 hover:text-sky-300 underline">Restablecer</button>
+          </div>
+
+          <!-- Zoom General -->
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-400">Zoom / Escala General</span>
+              <span id="valZoom" class="text-sky-400 font-semibold">100%</span>
+            </div>
+            <input id="sliderZoom" type="range" min="15" max="300" value="100" class="w-full" oninput="onTransformSliderChange('zoom', this.value)" />
+          </div>
+
+          <!-- Ancho y Alto Independientes (Para amoldar a la forma del cuaderno) -->
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <div class="space-y-1">
+              <div class="flex justify-between text-[11px]">
+                <span class="text-slate-400">Estirar Ancho (X)</span>
+                <span id="valStretchX" class="text-slate-200 font-medium">100%</span>
+              </div>
+              <input id="sliderStretchX" type="range" min="30" max="200" value="100" class="w-full" oninput="onTransformSliderChange('stretchX', this.value)" />
+            </div>
+            <div class="space-y-1">
+              <div class="flex justify-between text-[11px]">
+                <span class="text-slate-400">Estirar Alto (Y)</span>
+                <span id="valStretchY" class="text-slate-200 font-medium">100%</span>
+              </div>
+              <input id="sliderStretchY" type="range" min="30" max="200" value="100" class="w-full" oninput="onTransformSliderChange('stretchY', this.value)" />
+            </div>
+          </div>
+
+          <!-- Posición X / Y -->
+          <div class="grid grid-cols-2 gap-3 pt-1">
+            <div class="space-y-1">
+              <div class="flex justify-between text-[11px]">
+                <span class="text-slate-400">Posición X</span>
+                <span id="valPosX" class="text-slate-200 font-medium">0</span>
+              </div>
+              <input id="sliderPosX" type="range" min="-400" max="400" value="0" class="w-full" oninput="onTransformSliderChange('posX', this.value)" />
+            </div>
+            <div class="space-y-1">
+              <div class="flex justify-between text-[11px]">
+                <span class="text-slate-400">Posición Y</span>
+                <span id="valPosY" class="text-slate-200 font-medium">0</span>
+              </div>
+              <input id="sliderPosY" type="range" min="-550" max="550" value="0" class="w-full" oninput="onTransformSliderChange('posY', this.value)" />
+            </div>
+          </div>
+
+          <!-- Rotación y Volteo -->
+          <div class="space-y-1 pt-1">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-400">Rotación de la Imagen</span>
+              <span id="valRotation" class="text-sky-400 font-semibold">0°</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <input id="sliderRotation" type="range" min="-180" max="180" value="0" class="flex-1" oninput="onTransformSliderChange('rotation', this.value)" />
+              <button onclick="rotate90()" title="Rotar 90°" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200">
+                <i data-lucide="rotate-cw" class="w-4 h-4"></i>
+              </button>
+              <button onclick="toggleFlipH()" title="Espejo Horizontal (Modo Sublimación)" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-medium text-slate-200 flex items-center gap-1">
+                <i data-lucide="flip-horizontal" class="w-3.5 h-3.5 text-sky-400"></i> Espejo
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ACABADO DEL CUADERNO Y FONDO -->
+        <div class="bg-slate-800/50 rounded-2xl p-3.5 border border-slate-800 space-y-3">
+          <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-sky-400"></i> Acabado de Sublimación y Tapa
+          </span>
+
+          <div class="grid grid-cols-2 gap-3 items-center">
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">Color Base de Tapa</label>
+              <div class="flex items-center gap-2">
+                <input id="coverBgColor" type="color" value="#f8fafc" onchange="updateCoverBaseColor(this.value)" class="w-8 h-8 rounded-lg cursor-pointer bg-transparent border border-slate-600" />
+                <button onclick="updateCoverBaseColor('#f8fafc')" class="text-[11px] px-2 py-1 rounded bg-slate-800 border border-slate-700 text-slate-300">Blanco Sublimable</button>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">Brillo de Polímero</label>
+              <select id="finishSelect" onchange="updateSurfaceFinish(this.value)" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-sky-500">
+                <option value="satin" selected>Satinado Realista</option>
+                <option value="glossy">Alto Brillo (Glossy)</option>
+                <option value="matte">Mate Suave</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-1 border-t border-slate-800">
+            <label class="text-xs text-slate-300 flex items-center gap-2 cursor-pointer">
+              <input id="mirrorBackCover" type="checkbox" onchange="onToggleAutoSyncBack(this.checked)" class="rounded bg-slate-800 border-slate-600 text-sky-500" />
+              Sincronizar automáticamente Adelante en Contraportada
+            </label>
+          </div>
+
+          <button onclick="downloadPrintTemplate()" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-sky-400 flex items-center justify-center gap-2 transition">
+            <i data-lucide="download" class="w-4 h-4"></i> <span id="downloadBtnLabel">Descargar Plantilla 2D (Adelante)</span>
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- PANEL DERECHO: PASO 2 - VISOR 3D INTERACTIVO EN TIEMPO REAL -->
+    <section id="panel3D" class="flex-1 h-1/2 lg:h-full relative bg-gradient-to-b from-slate-900 via-slate-950 to-black flex flex-col overflow-hidden">
+      
+      <!-- Indicador Superior Flotante en el Visor 3D -->
+      <div class="absolute top-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 pointer-events-none z-10">
+        <!-- Modo de Interacción Táctil / Ratón -->
+        <div class="pointer-events-auto bg-slate-900/85 backdrop-blur-md border border-slate-700/80 rounded-2xl p-1.5 flex items-center gap-1 shadow-xl">
+          <button id="btnModeRotate" onclick="setInteractionMode('rotate')" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-sky-500 text-slate-950 shadow transition">
+            <i data-lucide="rotate-3d" class="w-4 h-4"></i> Rotar 360°
+          </button>
+          <button id="btnModePan" onclick="setInteractionMode('pan')" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 text-slate-300 hover:text-white transition">
+            <i data-lucide="move" class="w-4 h-4"></i> Mover
+          </button>
+        </div>
+
+        <!-- Vistas Rápidas de Cámara -->
+        <div class="pointer-events-auto bg-slate-900/85 backdrop-blur-md border border-slate-700/80 rounded-2xl p-1.5 flex items-center gap-1 shadow-xl">
+          <button onclick="setCameraPreset('front')" class="px-2.5 py-1 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition">Vista Frontal</button>
+          <button onclick="setCameraPreset('iso')" class="px-2.5 py-1 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition">3/4</button>
+          <button onclick="setCameraPreset('rings')" class="px-2.5 py-1 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition">Anillos</button>
+          <button onclick="setCameraPreset('back')" class="px-2.5 py-1 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition">Vista Trasera</button>
+          <button onclick="setCameraPreset('reset')" title="Resetear Cámara" class="px-2 py-1 rounded-xl text-xs font-medium text-sky-400 hover:bg-slate-800 transition">Resetear</button>
+          <button id="btnAutoRotate" onclick="toggleAutoRotate()" title="Giro Automático" class="p-1.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-sky-400 transition">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- LIENZO WEBGL THREE.JS -->
+      <div id="canvas3dContainer" class="w-full h-full flex-1 relative cursor-grab active:cursor-grabbing"></div>
+
+      <!-- BARRA INFERIOR FLOTANTE DE CONTROLES 3D (ZOOM Y APERTURA DEL CUADERNO) -->
+      <div class="absolute bottom-3 left-3 right-3 flex flex-col sm:flex-row items-center justify-between gap-2.5 pointer-events-none z-10">
+        
+        <!-- Control de Zoom 3D -->
+        <div class="pointer-events-auto w-full sm:w-auto bg-slate-900/85 backdrop-blur-md border border-slate-700/80 rounded-2xl px-3.5 py-2 flex items-center gap-2.5 shadow-xl">
+          <button onclick="stepZoom3D(-0.8)" title="Alejar" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 active:scale-90 transition">
+            <i data-lucide="zoom-out" class="w-4 h-4"></i>
+          </button>
+          <div class="flex flex-col flex-1 sm:w-28">
+            <div class="flex justify-between text-[10px] text-slate-400 mb-0.5">
+              <span>Zoom 3D</span>
+              <span id="zoom3dLabel" class="text-sky-400 font-semibold">100%</span>
+            </div>
+            <input id="sliderZoom3D" type="range" min="35" max="140" value="85" oninput="onSliderZoom3D(this.value)" />
+          </div>
+          <button onclick="stepZoom3D(0.8)" title="Acercar" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 active:scale-90 transition">
+            <i data-lucide="zoom-in" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <!-- Control de Abrir / Cerrar Tapa del Cuaderno -->
+        <div class="pointer-events-auto w-full sm:w-auto bg-slate-900/85 backdrop-blur-md border border-slate-700/80 rounded-2xl px-3.5 py-2 flex items-center gap-3 shadow-xl">
+          <i data-lucide="book-open" class="w-4 h-4 text-sky-400 shrink-0"></i>
+          <div class="flex flex-col flex-1 sm:w-36">
+            <div class="flex justify-between text-[10px] text-slate-400 mb-0.5">
+              <span>Abrir Tapa</span>
+              <span id="openCoverLabel" class="text-sky-400 font-semibold">0° (Cerrado)</span>
+            </div>
+            <input id="sliderOpenCover" type="range" min="0" max="135" value="0" oninput="onOpenCoverChange(this.value)" />
+          </div>
+          <button onclick="setCameraPreset('front')" title="Centrar Vista" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 border border-slate-700 transition">
+            Centrar
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Notificación Toast Flotante -->
+  <div id="toastMsg" class="fixed bottom-5 right-5 bg-slate-900/95 border border-sky-500/40 text-slate-100 px-4 py-2.5 rounded-2xl shadow-2xl text-xs font-medium flex items-center gap-2 transition-all duration-300 opacity-0 pointer-events-none translate-y-3 z-50">
+    <i data-lucide="check-circle-2" class="w-4 h-4 text-sky-400"></i>
+    <span id="toastText">Imagen actualizada en el cuaderno 3D</span>
+  </div>
+
+  <script>
+    /***************************************************************************
+     * 1. CONFIGURACIÓN GEOMÉTRICA EXACTA DEL CUADERNO DE LA FOTO
+     *    - Proporción vertical: 500 x 740 px en 2D -> 3.0 x 4.44 unidades en 3D
+     *    - 10 perforaciones circulares en el borde izquierdo divididas en:
+     *      * Grupo Superior: 5 perforaciones (con 5 anillos dobles negros)
+     *      * Espacio Central Libre: sin perforaciones
+     *      * Grupo Inferior: 5 perforaciones (con 5 anillos dobles negros)
+     ***************************************************************************/
+    const TEMPLATE_W = 1000;
+    const TEMPLATE_H = 1480;
+
+    // Coordenadas normalizadas (0 a 1) de las 10 perforaciones sobre la tapa
+    // Borde izquierdo (x = 0.058 del ancho)
+    const HOLE_X_NORM = 0.058;
+    const HOLE_RADIUS_NORM = 0.0175; // Radio de cada perforación circular
+
+    // Posiciones Y normalizadas (0 = abajo en 3D / arriba en 2D según convención; aquí 0 = borde superior, 1 = borde inferior)
+    const HOLES_Y_NORM = [
+      // Grupo superior (5 huecos)
+      0.105, 0.160, 0.215, 0.270, 0.325,
+      // Grupo inferior (5 huecos)
+      0.675, 0.730, 0.785, 0.840, 0.895
+    ];
+
+    // Estado independiente para ambas caras: 'front' (Parte de Adelante) y 'back' (Parte de Atrás)
+    let activeSide = 'front';
+    let autoSyncBack = false;
+
+    const sidesState = {
+      front: {
+        image: null,
+        scale: 1.0,
+        stretchX: 1.0,
+        stretchY: 1.0,
+        posX: 0,
+        posY: 0,
+        rotation: 0,
+        flipH: false,
+        bgColor: '#f8fafc'
+      },
+      back: {
+        image: null,
+        scale: 1.0,
+        stretchX: 1.0,
+        stretchY: 1.0,
+        posX: 0,
+        posY: 0,
+        rotation: 0,
+        flipH: false,
+        bgColor: '#f8fafc'
+      }
+    };
+
+    // Referencia dinámica a la cara actualmente seleccionada para que todos los controles funcionen igual
+    let editorState = sidesState.front;
+
+    // Canvas oculto de alta resolución para la textura 3D de la Portada (Adelante)
+    const textureCanvas = document.createElement('canvas');
+    textureCanvas.width = TEMPLATE_W;
+    textureCanvas.height = TEMPLATE_H;
+    const textureCtx = textureCanvas.getContext('2d');
+
+    // Canvas oculto limpio de alta resolución para el diseño 2D de la Contraportada (Atrás)
+    const backDesignCanvas = document.createElement('canvas');
+    backDesignCanvas.width = TEMPLATE_W;
+    backDesignCanvas.height = TEMPLATE_H;
+    const backDesignCtx = backDesignCanvas.getContext('2d');
+
+    // Canvas de textura 3D para la Contraportada (compensa la orientación UV trasera para no invertir la imagen)
+    const backTextureCanvas = document.createElement('canvas');
+    backTextureCanvas.width = TEMPLATE_W;
+    backTextureCanvas.height = TEMPLATE_H;
+    const backTextureCtx = backTextureCanvas.getContext('2d');
+
+    // Canvas visible en el panel 2D
+    const editorCanvas = document.getElementById('editor2dCanvas');
+    const editorCtx = editorCanvas.getContext('2d');
+
+    // Función para cambiar entre "Parte de Adelante (Portada)" y "Parte de Atrás (Contraportada)"
+    function selectCoverSide(side, rotateCamera = true) {
+      if (side !== 'front' && side !== 'back') return;
+      activeSide = side;
+      editorState = sidesState[side];
+
+      const isFront = side === 'front';
+
+      // Actualizar botones del selector en barra superior y panel 2D
+      const activeTopClass = 'px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 bg-sky-500 text-slate-950 shadow';
+      const idleTopClass = 'px-3 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 text-slate-300 hover:text-white';
+      const activePanelClass = 'py-1.5 px-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 bg-sky-500 text-slate-950 shadow';
+      const idlePanelClass = 'py-1.5 px-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-center gap-1.5 text-slate-300 hover:text-white';
+
+      const hbFront = document.getElementById('headerBtnFront');
+      const hbBack = document.getElementById('headerBtnBack');
+      if (hbFront && hbBack) {
+        hbFront.className = isFront ? activeTopClass : idleTopClass;
+        hbBack.className = !isFront ? activeTopClass : idleTopClass;
+      }
+
+      const pbFront = document.getElementById('panelBtnFront');
+      const pbBack = document.getElementById('panelBtnBack');
+      if (pbFront && pbBack) {
+        pbFront.className = isFront ? activePanelClass : idlePanelClass;
+        pbBack.className = !isFront ? activePanelClass : idlePanelClass;
+      }
+
+      // Actualizar textos contextuales del panel 2D
+      const headerTitle = document.getElementById('editor2dHeaderTitle');
+      if (headerTitle) {
+        headerTitle.textContent = isFront
+          ? 'Molde 2D: Parte de Adelante'
+          : 'Molde 2D: Parte de Atrás';
+      }
+
+      const badge = document.getElementById('activeSideBadge');
+      if (badge) {
+        badge.innerHTML = isFront
+          ? '<i data-lucide="edit-3" class="w-3 h-3"></i> Editando: Parte de Adelante (Anillos a la izquierda)'
+          : '<i data-lucide="edit-3" class="w-3 h-3"></i> Editando: Parte de Atrás (Anillos a la derecha)';
+      }
+
+      const hint = document.getElementById('holesSideHint');
+      if (hint) {
+        hint.innerHTML = isFront
+          ? 'Los círculos <strong>izquierdos</strong> indican dónde van los <strong>2 grupos de 5 anillos negros</strong>.'
+          : 'Vista exterior trasera: los círculos <strong>derechos</strong> indican dónde van los <strong>2 grupos de 5 anillos negros</strong>.';
+      }
+
+      const dlLabel = document.getElementById('downloadBtnLabel');
+      if (dlLabel) {
+        dlLabel.textContent = isFront
+          ? 'Descargar Plantilla 2D (Adelante)'
+          : 'Descargar Plantilla 2D (Atrás)';
+      }
+
+      // Sincronizar color base y deslizadores con el estado de la cara activa
+      document.getElementById('coverBgColor').value = editorState.bgColor;
+      syncSlidersWithState();
+      render2DTemplate();
+      if (window.lucide) lucide.createIcons();
+
+      // Girar suavemente la cámara 3D hacia la cara seleccionada
+      if (rotateCamera && camera && controls) {
+        setCameraPreset(isFront ? 'front' : 'back');
+      }
+    }
+
+    // Copiar el diseño de la Parte de Adelante hacia la Parte de Atrás
+    function copyFrontToBack() {
+      sidesState.back.image = sidesState.front.image;
+      sidesState.back.scale = sidesState.front.scale;
+      sidesState.back.stretchX = sidesState.front.stretchX;
+      sidesState.back.stretchY = sidesState.front.stretchY;
+      sidesState.back.posX = sidesState.front.posX;
+      sidesState.back.posY = sidesState.front.posY;
+      sidesState.back.rotation = sidesState.front.rotation;
+      sidesState.back.flipH = sidesState.front.flipH;
+      sidesState.back.bgColor = sidesState.front.bgColor;
+
+      render2DTemplate();
+      showToast('Diseño de Adelante copiado a la Parte de Atrás');
+    }
+
+    function onToggleAutoSyncBack(checked) {
+      autoSyncBack = checked;
+      if (checked) {
+        copyFrontToBack();
+      } else {
+        render2DTemplate();
+      }
+    }
+
+    /***************************************************************************
+     * 2. GENERADOR DE DISEÑOS DE PRUEBA Y CARGA DE IMAGEN DEL USUARIO
+     ***************************************************************************/
+    function createSampleArtwork(variant = 1, targetSide = activeSide) {
+      const c = document.createElement('canvas');
+      c.width = 900;
+      c.height = 1332;
+      const ctx = c.getContext('2d');
+
+      if (variant === 1) {
+        // Diseño vibrante estilo arte moderno / sublimación tropical-geométrica
+        const grad = ctx.createLinearGradient(0, 0, c.width, c.height);
+        grad.addColorStop(0, '#0ea5e9');
+        grad.addColorStop(0.5, '#6366f1');
+        grad.addColorStop(1, '#ec4899');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, c.width, c.height);
+
+        // Círculos decorativos suaves
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+        ctx.beginPath();
+        ctx.arc(720, 260, 260, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(200, 1080, 310, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Marco interno elegante
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+        ctx.lineWidth = 6;
+        ctx.strokeRect(110, 90, c.width - 220, c.height - 180);
+
+        // Tipografía central de muestra
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 74px Inter, sans-serif';
+        ctx.fillText(targetSide === 'back' ? 'CONTRAPORTADA' : 'MI AGENDA', c.width / 2, c.height / 2 - 40);
+        ctx.font = '600 42px Inter, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.fillText('PERSONALIZADA', c.width / 2, c.height / 2 + 25);
+
+        ctx.font = '500 28px Inter, sans-serif';
+        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+        ctx.fillText('Sube tu propia foto arriba', c.width / 2, c.height / 2 + 100);
+      } else {
+        // Variante 2: Estilo botánico / minimalista cálido
+        const grad = ctx.createLinearGradient(0, 0, 0, c.height);
+        grad.addColorStop(0, '#fef3c7');
+        grad.addColorStop(1, '#fde68a');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, c.width, c.height);
+
+        ctx.fillStyle = '#d97706';
+        ctx.beginPath();
+        ctx.arc(c.width / 2, c.height / 2 - 80, 220, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#065f46';
+        ctx.beginPath();
+        ctx.arc(c.width / 2 + 90, c.height / 2 + 140, 160, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#1e293b';
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 68px Inter, sans-serif';
+        ctx.fillText(targetSide === 'back' ? 'PARTE TRASERA' : 'NOTAS & IDEAS', c.width / 2, 230);
+        ctx.font = '500 32px Inter, sans-serif';
+        ctx.fillText('Edición Sublimada 3D', c.width / 2, 1160);
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        const prevSide = activeSide;
+        activeSide = targetSide;
+        editorState = sidesState[targetSide];
+        editorState.image = img;
+        fitImageMode('cover');
+        activeSide = prevSide;
+        editorState = sidesState[prevSide];
+        syncSlidersWithState();
+        render2DTemplate();
+      };
+      img.src = c.toDataURL('image/png');
+    }
+
+    function loadSampleDesign(num) {
+      createSampleArtwork(num, activeSide);
+      showToast(`Diseño de ejemplo aplicado en ${activeSide === 'front' ? 'Adelante' : 'Atrás'}`);
+    }
+
+    // Subida de cualquier imagen desde galería o archivo hacia la cara actualmente activa
+    document.getElementById('imageUploadInput').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          editorState.image = img;
+          // Por defecto encajamos cubriendo la tapa activa y el usuario puede estirarla o moverla
+          fitImageMode('cover');
+          const sideName = activeSide === 'front' ? 'Parte de Adelante' : 'Parte de Atrás';
+          showToast(`¡Imagen cargada en ${sideName}! Ajústala en el molde`);
+        };
+        img.src = ev.target.result;
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    });
+
+    /***************************************************************************
+     * 3. FUNCIONES DE AJUSTE Y RENDERIZADO DEL MOLDE 2D
+     ***************************************************************************/
+    function fitImageMode(mode) {
+      if (!editorState.image) return;
+      const imgW = editorState.image.width;
+      const imgH = editorState.image.height;
+
+      editorState.posX = 0;
+      editorState.posY = 0;
+      editorState.rotation = 0;
+
+      if (mode === 'stretch') {
+        // Calcula la escala base y estira X / Y exactamente al molde del cuaderno
+        const baseScale = TEMPLATE_W / imgW;
+        editorState.scale = baseScale;
+        editorState.stretchX = 1.0;
+        editorState.stretchY = (TEMPLATE_H / imgH) / baseScale;
+      } else if (mode === 'cover') {
+        const scaleX = TEMPLATE_W / imgW;
+        const scaleY = TEMPLATE_H / imgH;
+        editorState.scale = Math.max(scaleX, scaleY);
+        editorState.stretchX = 1.0;
+        editorState.stretchY = 1.0;
+      } else if (mode === 'contain') {
+        const scaleX = TEMPLATE_W / imgW;
+        const scaleY = TEMPLATE_H / imgH;
+        editorState.scale = Math.min(scaleX, scaleY);
+        editorState.stretchX = 1.0;
+        editorState.stretchY = 1.0;
+      } else if (mode === 'center') {
+        editorState.posX = 0;
+        editorState.posY = 0;
+      }
+
+      syncSlidersWithState();
+      render2DTemplate();
+    }
+
+    function resetImageTransforms() {
+      fitImageMode('cover');
+    }
+
+    function rotate90() {
+      editorState.rotation = ((editorState.rotation + 90 + 180) % 360) - 180;
+      syncSlidersWithState();
+      render2DTemplate();
+    }
+
+    function toggleFlipH() {
+      editorState.flipH = !editorState.flipH;
+      render2DTemplate();
+      showToast(editorState.flipH ? 'Modo espejo activado' : 'Modo espejo desactivado');
+    }
+
+    function onTransformSliderChange(type, rawVal) {
+      const val = parseFloat(rawVal);
+      if (!editorState.image) return;
+
+      // Escala de referencia cuando la imagen cubre el ancho
+      const baseCoverScale = Math.max(TEMPLATE_W / editorState.image.width, TEMPLATE_H / editorState.image.height);
+
+      if (type === 'zoom') {
+        editorState.scale = baseCoverScale * (val / 100);
+        document.getElementById('valZoom').textContent = `${Math.round(val)}%`;
+      } else if (type === 'stretchX') {
+        editorState.stretchX = val / 100;
+        document.getElementById('valStretchX').textContent = `${Math.round(val)}%`;
+      } else if (type === 'stretchY') {
+        editorState.stretchY = val / 100;
+        document.getElementById('valStretchY').textContent = `${Math.round(val)}%`;
+      } else if (type === 'posX') {
+        editorState.posX = val;
+        document.getElementById('valPosX').textContent = Math.round(val);
+      } else if (type === 'posY') {
+        editorState.posY = val;
+        document.getElementById('valPosY').textContent = Math.round(val);
+      } else if (type === 'rotation') {
+        editorState.rotation = val;
+        document.getElementById('valRotation').textContent = `${Math.round(val)}°`;
+      }
+
+      render2DTemplate();
+    }
+
+    function syncSlidersWithState() {
+      if (!editorState.image) {
+        document.getElementById('sliderZoom').value = 100;
+        document.getElementById('valZoom').textContent = '100%';
+        document.getElementById('sliderStretchX').value = 100;
+        document.getElementById('valStretchX').textContent = '100%';
+        document.getElementById('sliderStretchY').value = 100;
+        document.getElementById('valStretchY').textContent = '100%';
+        document.getElementById('sliderPosX').value = 0;
+        document.getElementById('valPosX').textContent = '0';
+        document.getElementById('sliderPosY').value = 0;
+        document.getElementById('valPosY').textContent = '0';
+        document.getElementById('sliderRotation').value = 0;
+        document.getElementById('valRotation').textContent = '0°';
+        return;
+      }
+      const baseCoverScale = Math.max(TEMPLATE_W / editorState.image.width, TEMPLATE_H / editorState.image.height);
+      const zoomPct = Math.round((editorState.scale / baseCoverScale) * 100);
+
+      document.getElementById('sliderZoom').value = Math.min(300, Math.max(15, zoomPct));
+      document.getElementById('valZoom').textContent = `${zoomPct}%`;
+
+      const sxPct = Math.round(editorState.stretchX * 100);
+      document.getElementById('sliderStretchX').value = Math.min(200, Math.max(30, sxPct));
+      document.getElementById('valStretchX').textContent = `${sxPct}%`;
+
+      const syPct = Math.round(editorState.stretchY * 100);
+      document.getElementById('sliderStretchY').value = Math.min(200, Math.max(30, syPct));
+      document.getElementById('valStretchY').textContent = `${syPct}%`;
+
+      document.getElementById('sliderPosX').value = Math.round(editorState.posX);
+      document.getElementById('valPosX').textContent = Math.round(editorState.posX);
+
+      document.getElementById('sliderPosY').value = Math.round(editorState.posY);
+      document.getElementById('valPosY').textContent = Math.round(editorState.posY);
+
+      document.getElementById('sliderRotation').value = Math.round(editorState.rotation);
+      document.getElementById('valRotation').textContent = `${Math.round(editorState.rotation)}°`;
+    }
+
+    function updateCoverBaseColor(colorHex) {
+      editorState.bgColor = colorHex;
+      document.getElementById('coverBgColor').value = colorHex;
+      render2DTemplate();
+    }
+
+    // Función auxiliar que dibuja el estado de una cara ('front' o 'back') en un contexto de alta resolución
+    function renderSideToContext(stateObj, ctx) {
+      ctx.save();
+      ctx.fillStyle = stateObj.bgColor;
+      ctx.fillRect(0, 0, TEMPLATE_W, TEMPLATE_H);
+
+      if (stateObj.image) {
+        ctx.save();
+        ctx.translate(TEMPLATE_W / 2 + stateObj.posX, TEMPLATE_H / 2 + stateObj.posY);
+        ctx.rotate((stateObj.rotation * Math.PI) / 180);
+        const signX = stateObj.flipH ? -1 : 1;
+        ctx.scale(
+          stateObj.scale * stateObj.stretchX * signX,
+          stateObj.scale * stateObj.stretchY
+        );
+        ctx.drawImage(
+          stateObj.image,
+          -stateObj.image.width / 2,
+          -stateObj.image.height / 2
+        );
+        ctx.restore();
+      }
+
+      // Sombreado sutil de borde realista en la tapa sublimada
+      const edgeGrad = ctx.createLinearGradient(0, 0, TEMPLATE_W, 0);
+      edgeGrad.addColorStop(0, 'rgba(0,0,0,0.06)');
+      edgeGrad.addColorStop(0.03, 'rgba(0,0,0,0)');
+      edgeGrad.addColorStop(0.97, 'rgba(0,0,0,0)');
+      edgeGrad.addColorStop(1, 'rgba(0,0,0,0.05)');
+      ctx.fillStyle = edgeGrad;
+      ctx.fillRect(0, 0, TEMPLATE_W, TEMPLATE_H);
+      ctx.restore();
+    }
+
+    // Dibuja las texturas limpias para ambas tapas 3D y actualiza el lienzo 2D de la cara activa
+    function render2DTemplate() {
+      if (autoSyncBack && activeSide === 'front') {
+        sidesState.back.image = sidesState.front.image;
+        sidesState.back.scale = sidesState.front.scale;
+        sidesState.back.stretchX = sidesState.front.stretchX;
+        sidesState.back.stretchY = sidesState.front.stretchY;
+        sidesState.back.posX = sidesState.front.posX;
+        sidesState.back.posY = sidesState.front.posY;
+        sidesState.back.rotation = sidesState.front.rotation;
+        sidesState.back.flipH = sidesState.front.flipH;
+        sidesState.back.bgColor = sidesState.front.bgColor;
+      }
+
+      // 1. Renderizar Parte de Adelante en textureCanvas (1000 x 1480)
+      renderSideToContext(sidesState.front, textureCtx);
+
+      // 2. Renderizar Parte de Atrás en backDesignCanvas (1000 x 1480)
+      renderSideToContext(sidesState.back, backDesignCtx);
+
+      // 3. Copiar la cara actualmente activa al canvas visible del Editor 2D (500 x 740)
+      const activeSourceCanvas = activeSide === 'front' ? textureCanvas : backDesignCanvas;
+      editorCtx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
+      editorCtx.drawImage(activeSourceCanvas, 0, 0, editorCanvas.width, editorCanvas.height);
+
+      const showGuides = document.getElementById('showGuidesToggle').checked;
+      const isFront = activeSide === 'front';
+
+      // En "Adelante" las perforaciones están a la izquierda (HOLE_X_NORM);
+      // En "Atrás" (vista exterior trasera) están a la derecha (1 - HOLE_X_NORM).
+      const holeXNormCurrent = isFront ? HOLE_X_NORM : (1 - HOLE_X_NORM);
+      const holeX = holeXNormCurrent * editorCanvas.width;
+      const holeR = HOLE_RADIUS_NORM * editorCanvas.width;
+
+      // Dibujar los 10 huecos de perforación (5 arriba, 5 abajo) y sus anillos dobles negros
+      HOLES_Y_NORM.forEach((yNorm) => {
+        const holeY = yNorm * editorCanvas.height;
+
+        editorCtx.save();
+        editorCtx.beginPath();
+        editorCtx.arc(holeX, holeY, holeR, 0, Math.PI * 2);
+        editorCtx.fillStyle = '#0f172a';
+        editorCtx.fill();
+        editorCtx.lineWidth = 2;
+        editorCtx.strokeStyle = showGuides ? '#38bdf8' : 'rgba(255,255,255,0.35)';
+        editorCtx.stroke();
+
+        // Silueta del anillo doble (hacia el borde izquierdo en Portada, o hacia el borde derecho en Contraportada)
+        editorCtx.fillStyle = '#1e293b';
+        if (isFront) {
+          editorCtx.fillRect(0, holeY - holeR * 0.55, holeX, holeR * 0.4);
+          editorCtx.fillRect(0, holeY + holeR * 0.15, holeX, holeR * 0.4);
+        } else {
+          editorCtx.fillRect(holeX, holeY - holeR * 0.55, editorCanvas.width - holeX, holeR * 0.4);
+          editorCtx.fillRect(holeX, holeY + holeR * 0.15, editorCanvas.width - holeX, holeR * 0.4);
+        }
+        editorCtx.restore();
+      });
+
+      // Línea guía de margen seguro de anillado
+      if (showGuides) {
+        editorCtx.save();
+        editorCtx.setLineDash([6, 6]);
+        editorCtx.strokeStyle = 'rgba(56, 189, 248, 0.75)';
+        editorCtx.lineWidth = 1.5;
+        const safeMarginX = isFront
+          ? (HOLE_X_NORM + HOLE_RADIUS_NORM * 1.9) * editorCanvas.width
+          : (1 - (HOLE_X_NORM + HOLE_RADIUS_NORM * 1.9)) * editorCanvas.width;
+        editorCtx.beginPath();
+        editorCtx.moveTo(safeMarginX, 0);
+        editorCtx.lineTo(safeMarginX, editorCanvas.height);
+        editorCtx.stroke();
+        editorCtx.restore();
+      }
+
+      // Actualizar texturas 3D de ambas tapas en vivo
+      update3DTexture();
+    }
+
+    /***************************************************************************
+     * 4. INTERACCIÓN TÁCTIL Y DE RATÓN EN EL EDITOR 2D (ARRASTRAR Y PELLIZCAR)
+     ***************************************************************************/
+    let isDragging2D = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let initialPinchDist = null;
+    let initialScaleOnPinch = 1;
+
+    editorCanvas.addEventListener('mousedown', (e) => {
+      isDragging2D = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging2D) return;
+      const rect = editorCanvas.getBoundingClientRect();
+      const ratioX = TEMPLATE_W / rect.width;
+      const ratioY = TEMPLATE_H / rect.height;
+
+      const dx = (e.clientX - dragStartX) * ratioX;
+      const dy = (e.clientY - dragStartY) * ratioY;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+
+      editorState.posX += dx;
+      editorState.posY += dy;
+      syncSlidersWithState();
+      render2DTemplate();
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging2D = false;
+    });
+
+    // Rueda del ratón sobre el molde 2D para hacer zoom a la imagen
+    editorCanvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (!editorState.image) return;
+      const factor = e.deltaY < 0 ? 1.06 : 0.94;
+      editorState.scale = Math.max(0.05, Math.min(5.0, editorState.scale * factor));
+      syncSlidersWithState();
+      render2DTemplate();
+    }, { passive: false });
+
+    // Eventos Táctiles en el molde 2D (1 dedo mueve, 2 dedos hacen zoom a la imagen)
+    editorCanvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        isDragging2D = true;
+        dragStartX = e.touches[0].clientX;
+        dragStartY = e.touches[0].clientY;
+      } else if (e.touches.length === 2) {
+        isDragging2D = false;
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        initialPinchDist = Math.hypot(dx, dy);
+        initialScaleOnPinch = editorState.scale;
+      }
+    }, { passive: true });
+
+    editorCanvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (e.touches.length === 1 && isDragging2D) {
+        const rect = editorCanvas.getBoundingClientRect();
+        const ratioX = TEMPLATE_W / rect.width;
+        const ratioY = TEMPLATE_H / rect.height;
+
+        const dx = (e.touches[0].clientX - dragStartX) * ratioX;
+        const dy = (e.touches[0].clientY - dragStartY) * ratioY;
+        dragStartX = e.touches[0].clientX;
+        dragStartY = e.touches[0].clientY;
+
+        editorState.posX += dx;
+        editorState.posY += dy;
+        syncSlidersWithState();
+        render2DTemplate();
+      } else if (e.touches.length === 2 && initialPinchDist) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const dist = Math.hypot(dx, dy);
+        const factor = dist / initialPinchDist;
+        editorState.scale = Math.max(0.05, Math.min(5.0, initialScaleOnPinch * factor));
+        syncSlidersWithState();
+        render2DTemplate();
+      }
+    }, { passive: false });
+
+    editorCanvas.addEventListener('touchend', () => {
+      isDragging2D = false;
+      initialPinchDist = null;
+    });
+
+    /***************************************************************************
+     * 5. ESCENA 3D CON THREE.JS: MODELO EXACTO DEL CUADERNO DE LA FOTO
+     ***************************************************************************/
+    let scene, camera, renderer, controls;
+    let notebookGroup, frontCoverPivot, frontCoverMesh, backCoverMesh;
+    let frontCoverTexture, backCoverTexture;
+    let frontCoverMaterial, backCoverMaterial;
+
+    // Dimensiones 3D del cuaderno
+    const BOOK_W = 3.0;
+    const BOOK_H = 4.44;
+    const COVER_THICKNESS = 0.045;
+    const PAGES_THICKNESS = 0.22;
+    const TOTAL_THICKNESS = COVER_THICKNESS * 2 + PAGES_THICKNESS;
+
+    function init3DScene() {
+      const container = document.getElementById('canvas3dContainer');
+      const w = container.clientWidth || 600;
+      const h = container.clientHeight || 500;
+
+      scene = new THREE.Scene();
+
+      camera = new THREE.PerspectiveCamera(36, w / h, 0.1, 100);
+      camera.position.set(0.5, 0.2, 8.2);
+
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        preserveDrawingBuffer: true
+      });
+      renderer.setSize(w, h);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      // Controles Orbitales (Soporta 1 dedo rotar, 2 dedos zoom y pan)
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.07;
+      controls.minDistance = 3.2;
+      controls.maxDistance = 15.0;
+      controls.target.set(0, 0, 0);
+
+      // Sincronizar deslizador de Zoom 3D cuando el usuario hace zoom con pellizco o rueda
+      controls.addEventListener('change', () => {
+        const dist = camera.position.distanceTo(controls.target);
+        // Convertir distancia (15 lejos -> 3.2 cerca) a valor de slider (35 -> 140)
+        const pct = Math.round(((15 - dist) / (15 - 3.2)) * (140 - 35) + 35);
+        const slider = document.getElementById('sliderZoom3D');
+        if (slider) slider.value = Math.max(35, Math.min(140, pct));
+        const label = document.getElementById('zoom3dLabel');
+        if (label) label.textContent = `${Math.max(40, Math.min(200, Math.round(pct * 1.15)))}%`;
+      });
+
+      // Iluminación calibrada 1:1 para mantener los colores exactos de la imagen sin blanquearla
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+      scene.add(ambientLight);
+
+      const mainLight = new THREE.DirectionalLight(0xffffff, 0.15);
+      mainLight.position.set(4, 6, 7);
+      mainLight.castShadow = true;
+      mainLight.shadow.mapSize.width = 2048;
+      mainLight.shadow.mapSize.height = 2048;
+      scene.add(mainLight);
+
+      const fillLight = new THREE.DirectionalLight(0xffffff, 0.08);
+      fillLight.position.set(-6, -2, 5);
+      scene.add(fillLight);
+
+      const rimLight = new THREE.DirectionalLight(0xffffff, 0.15);
+      rimLight.position.set(0, 4, -7);
+      scene.add(rimLight);
+
+      // Construir el Cuaderno 3D
+      buildNotebook3D();
+
+      // Eventos de cambio de tamaño de ventana
+      window.addEventListener('resize', onWindowResize);
+    }
+
+    /**
+     * Crea la geometría extruida de una tapa (portada o contraportada) con las 10 perforaciones
+     * circulares reales y mapeo UV exacto (0..1) en la cara frontal.
+     */
+    function createPunchedCoverGeometry(width, height, depth) {
+      const shape = new THREE.Shape();
+      const hw = width / 2;
+      const hh = height / 2;
+      const r = 0.03; // Esquinas ligeramente suavizadas como en el cuaderno real
+
+      shape.moveTo(-hw + r, -hh);
+      shape.lineTo(hw - r, -hh);
+      shape.quadraticCurveTo(hw, -hh, hw, -hh + r);
+      shape.lineTo(hw, hh - r);
+      shape.quadraticCurveTo(hw, hh, hw - r, hh);
+      shape.lineTo(-hw + r, hh);
+      shape.quadraticCurveTo(-hw, hh, -hw, hh - r);
+      shape.lineTo(-hw, -hh + r);
+      shape.quadraticCurveTo(-hw, -hh, -hw + r, -hh);
+
+      // Perforar los 10 agujeros circulares (5 arriba y 5 abajo) en el borde izquierdo
+      const holeX = -hw + HOLE_X_NORM * width;
+      const holeRadius = HOLE_RADIUS_NORM * width;
+
+      HOLES_Y_NORM.forEach((yNorm) => {
+        // En Three.js Y va de +hh (arriba) a -hh (abajo)
+        const holeY = hh - yNorm * height;
+        const holePath = new THREE.Path();
+        holePath.absarc(holeX, holeY, holeRadius, 0, Math.PI * 2, false);
+        shape.holes.push(holePath);
+      });
+
+      const extrudeSettings = {
+        depth: depth,
+        bevelEnabled: true,
+        bevelSegments: 2,
+        steps: 1,
+        bevelSize: 0.006,
+        bevelThickness: 0.006
+      };
+
+      const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+      // Centrar en Z para que el grosor vaya de -depth/2 a +depth/2
+      geometry.translate(0, 0, -depth / 2);
+
+      // Recalcular coordenadas UV (0..1) para que la imagen del Canvas 2D calce al milímetro
+      const posAttr = geometry.attributes.position;
+      const uvAttr = geometry.attributes.uv;
+      for (let i = 0; i < posAttr.count; i++) {
+        const vx = posAttr.getX(i);
+        const vy = posAttr.getY(i);
+        const u = (vx + hw) / width;
+        const v = (vy + hh) / height;
+        uvAttr.setXY(i, u, v);
+      }
+      uvAttr.needsUpdate = true;
+
+      return geometry;
+    }
+
+    function buildNotebook3D() {
+      notebookGroup = new THREE.Group();
+      scene.add(notebookGroup);
+
+      // Texturas dinámicas conectadas a los Canvas 2D
+      frontCoverTexture = new THREE.CanvasTexture(textureCanvas);
+      frontCoverTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+      backCoverTexture = new THREE.CanvasTexture(backTextureCanvas);
+      backCoverTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+      // Materiales de la tapa sin velo blanco para conservar el color puro de la imagen subida
+      frontCoverMaterial = new THREE.MeshPhongMaterial({
+        map: frontCoverTexture,
+        specular: 0x080808,
+        shininess: 30
+      });
+
+      const coverEdgeMaterial = new THREE.MeshStandardMaterial({
+        color: 0xe2e8f0,
+        roughness: 0.65,
+        metalness: 0.02
+      });
+
+      backCoverMaterial = new THREE.MeshPhongMaterial({
+        map: backCoverTexture,
+        specular: 0x080808,
+        shininess: 30
+      });
+
+      const coverGeo = createPunchedCoverGeometry(BOOK_W, BOOK_H, COVER_THICKNESS);
+
+      // 1. TAPA FRONTAL (Dentro de un pivote en el eje de los anillos izquierdos para poder abrirla)
+      const hingeX = -BOOK_W / 2 + HOLE_X_NORM * BOOK_W;
+      const frontZ = PAGES_THICKNESS / 2 + COVER_THICKNESS / 2;
+
+      frontCoverPivot = new THREE.Group();
+      frontCoverPivot.position.set(hingeX, 0, frontZ);
+      notebookGroup.add(frontCoverPivot);
+
+      frontCoverMesh = new THREE.Mesh(coverGeo, [frontCoverMaterial, coverEdgeMaterial]);
+      frontCoverMesh.position.set(-hingeX, 0, 0);
+      frontCoverMesh.castShadow = true;
+      frontCoverMesh.receiveShadow = true;
+      frontCoverPivot.add(frontCoverMesh);
+
+      // 2. BLOQUE DE HOJAS INTERNAS (Con las mismas 10 perforaciones)
+      const pagesGeo = createPunchedCoverGeometry(BOOK_W - 0.04, BOOK_H - 0.05, PAGES_THICKNESS);
+      const pagesMat = new THREE.MeshStandardMaterial({
+        color: 0xf1f5f9,
+        roughness: 0.85,
+        metalness: 0.0
+      });
+      const pagesMesh = new THREE.Mesh(pagesGeo, pagesMat);
+      pagesMesh.position.set(0.01, 0, 0);
+      pagesMesh.castShadow = true;
+      pagesMesh.receiveShadow = true;
+      notebookGroup.add(pagesMesh);
+
+      // 3. CONTRAPORTADA
+      const backZ = -(PAGES_THICKNESS / 2 + COVER_THICKNESS / 2);
+      backCoverMesh = new THREE.Mesh(coverGeo, [backCoverMaterial, coverEdgeMaterial]);
+      backCoverMesh.position.set(0, 0, backZ);
+      backCoverMesh.castShadow = true;
+      backCoverMesh.receiveShadow = true;
+      notebookGroup.add(backCoverMesh);
+
+      // 4. ANILLADO METÁLICO NEGRO DE DOBLE ANILLO (5 PARES ARRIBA + ESPACIO + 5 PARES ABAJO)
+      const ringMaterial = new THREE.MeshStandardMaterial({
+        color: 0x14171f, // Negro metálico como en la foto
+        roughness: 0.25,
+        metalness: 0.85
+      });
+
+      const hw = BOOK_W / 2;
+      const hh = BOOK_H / 2;
+      const holeX = -hw + HOLE_X_NORM * BOOK_W;
+
+      // El anillo abraza el borde izquierdo entre holeX y el canto exterior (-hw)
+      const ringCenterX = -hw + (HOLE_X_NORM * BOOK_W) * 0.42;
+      const ringMajorRadius = Math.max(0.185, TOTAL_THICKNESS * 0.66);
+      const wireTubeRadius = 0.017;
+      const twinPairOffset = 0.024; // Separación entre los dos alambres de cada anillo doble
+
+      const singleWireGeo = new THREE.TorusGeometry(ringMajorRadius, wireTubeRadius, 16, 40);
+      // Aplanar sutilmente el anillo en el eje Y y rotarlo para que atraviese de adelante hacia atrás
+      singleWireGeo.rotateX(Math.PI / 2);
+
+      HOLES_Y_NORM.forEach((yNorm) => {
+        const holeY = hh - yNorm * BOOK_H;
+
+        // Primer alambre del par doble
+        const ring1 = new THREE.Mesh(singleWireGeo, ringMaterial);
+        ring1.position.set(ringCenterX, holeY + twinPairOffset, 0);
+        ring1.scale.set(0.88, 1, 0.96);
+        ring1.castShadow = true;
+        notebookGroup.add(ring1);
+
+        // Segundo alambre del par doble
+        const ring2 = new THREE.Mesh(singleWireGeo, ringMaterial);
+        ring2.position.set(ringCenterX, holeY - twinPairOffset, 0);
+        ring2.scale.set(0.88, 1, 0.96);
+        ring2.castShadow = true;
+        notebookGroup.add(ring2);
+      });
+
+      // Alambre conector interno del Wire-O oculto en el lomo para realismo al girar
+      const spineWireGeo = new THREE.CylinderGeometry(0.014, 0.014, BOOK_H * 0.23, 12);
+      const topSpineBar = new THREE.Mesh(spineWireGeo, ringMaterial);
+      topSpineBar.position.set(ringCenterX - ringMajorRadius * 0.82, hh - 0.215 * BOOK_H, 0);
+      notebookGroup.add(topSpineBar);
+
+      const bottomSpineBar = new THREE.Mesh(spineWireGeo, ringMaterial);
+      bottomSpineBar.position.set(ringCenterX - ringMajorRadius * 0.82, hh - 0.785 * BOOK_H, 0);
+      notebookGroup.add(bottomSpineBar);
+    }
+
+    function update3DTexture() {
+      if (!frontCoverTexture) return;
+      frontCoverTexture.needsUpdate = true;
+
+      // En la geometría 3D, u=0 corresponde al borde de los anillos (-hw) y u=1 al borde exterior (+hw).
+      // Al mirar la Contraportada desde atrás (Z negativo), el borde exterior (+hw, u=1) queda a la izquierda
+      // y el borde de los anillos (-hw, u=0) queda a la derecha, igual que en el Molde 2D de "Parte de Atrás".
+      // Por ello proyectamos backDesignCanvas invirtiendo el eje U para que la imagen se vea 100% derecha y sin espejado erróneo.
+      backTextureCtx.clearRect(0, 0, TEMPLATE_W, TEMPLATE_H);
+      backTextureCtx.save();
+      backTextureCtx.translate(TEMPLATE_W, 0);
+      backTextureCtx.scale(-1, 1);
+      backTextureCtx.drawImage(backDesignCanvas, 0, 0);
+      backTextureCtx.restore();
+
+      if (backCoverTexture) backCoverTexture.needsUpdate = true;
+    }
+
+    function updateSurfaceFinish(finish) {
+      if (!frontCoverMaterial || !backCoverMaterial) return;
+      let spec = 0x080808;
+      let shine = 30;
+      if (finish === 'glossy') {
+        spec = 0x222222;
+        shine = 80;
+      } else if (finish === 'satin') {
+        spec = 0x080808;
+        shine = 30;
+      } else {
+        spec = 0x000000;
+        shine = 5;
+      }
+      frontCoverMaterial.specular.setHex(spec);
+      frontCoverMaterial.shininess = shine;
+      frontCoverMaterial.needsUpdate = true;
+
+      backCoverMaterial.specular.setHex(spec);
+      backCoverMaterial.shininess = shine;
+      backCoverMaterial.needsUpdate = true;
+    }
+
+    /***************************************************************************
+     * 6. CONTROLES DE CÁMARA, ZOOM, MOVER Y APERTURA DE TAPA EN 3D
+     ***************************************************************************/
+    function toggleAutoRotate() {
+      if (!controls) return;
+      controls.autoRotate = !controls.autoRotate;
+      controls.autoRotateSpeed = 2.2;
+      const btn = document.getElementById('btnAutoRotate');
+      if (btn) {
+        btn.className = controls.autoRotate
+          ? 'p-1.5 rounded-xl bg-sky-500 text-slate-950 shadow transition'
+          : 'p-1.5 rounded-xl text-slate-300 hover:bg-slate-800 hover:text-sky-400 transition';
+      }
+    }
+
+    function setInteractionMode(mode) {
+      const btnRotate = document.getElementById('btnModeRotate');
+      const btnPan = document.getElementById('btnModePan');
+
+      if (mode === 'rotate') {
+        controls.touches.ONE = THREE.TOUCH.ROTATE;
+        controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+        btnRotate.className = 'px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-sky-500 text-slate-950 shadow transition';
+        btnPan.className = 'px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 text-slate-300 hover:text-white transition';
+      } else {
+        controls.touches.ONE = THREE.TOUCH.PAN;
+        controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+        btnPan.className = 'px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-sky-500 text-slate-950 shadow transition';
+        btnRotate.className = 'px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 text-slate-300 hover:text-white transition';
+      }
+    }
+
+    function stepZoom3D(delta) {
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      const currentDist = camera.position.distanceTo(controls.target);
+      const nextDist = Math.max(controls.minDistance, Math.min(controls.maxDistance, currentDist - delta));
+      const moveAmt = currentDist - nextDist;
+      camera.position.addScaledVector(dir, moveAmt);
+      controls.update();
+    }
+
+    function onSliderZoom3D(val) {
+      const v = parseFloat(val);
+      // Mapear 35..140 a distancia 15..3.2
+      const targetDist = 15 - ((v - 35) / (140 - 35)) * (15 - 3.2);
+      const offset = camera.position.clone().sub(controls.target).normalize().multiplyScalar(targetDist);
+      camera.position.copy(controls.target).add(offset);
+      controls.update();
+    }
+
+    function onOpenCoverChange(degVal) {
+      const deg = parseFloat(degVal);
+      document.getElementById('openCoverLabel').textContent = deg === 0 ? '0° (Cerrado)' : `${Math.round(deg)}°`;
+      if (frontCoverPivot) {
+        frontCoverPivot.rotation.y = -THREE.MathUtils.degToRad(deg);
+      }
+    }
+
+    // Animación suave de cámara al cambiar entre Parte de Adelante, Parte de Atrás o vistas rápidas
+    let cameraAnimState = null;
+
+    function animateCameraTo(targetPos, targetLookAt = new THREE.Vector3(0, 0, 0)) {
+      if (!camera || !controls) return;
+      cameraAnimState = {
+        startPos: camera.position.clone(),
+        endPos: targetPos.clone(),
+        startTarget: controls.target.clone(),
+        endTarget: targetLookAt.clone(),
+        startTime: performance.now(),
+        duration: 520
+      };
+    }
+
+    function setCameraPreset(preset) {
+      const currentDist = camera ? Math.max(4.5, Math.min(12.0, camera.position.distanceTo(controls.target))) : 8.0;
+      if (preset === 'front') {
+        animateCameraTo(new THREE.Vector3(0, 0, currentDist));
+      } else if (preset === 'iso') {
+        animateCameraTo(new THREE.Vector3(3.2, 1.4, 7.2));
+      } else if (preset === 'rings') {
+        animateCameraTo(new THREE.Vector3(-3.6, 0.4, 4.6));
+      } else if (preset === 'back') {
+        animateCameraTo(new THREE.Vector3(0, 0, -currentDist));
+      } else if (preset === 'reset') {
+        animateCameraTo(new THREE.Vector3(0.5, 0.2, 8.2));
+      }
+    }
+
+    function onWindowResize() {
+      const container = document.getElementById('canvas3dContainer');
+      if (!container || !renderer) return;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w === 0 || h === 0) return;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    }
+
+    // Cambiar vista en pantallas móviles (1. Ajustar 2D / Ambos / 2. Ver 3D)
+    function setMobileView(view) {
+      const p2d = document.getElementById('panel2D');
+      const p3d = document.getElementById('panel3D');
+      const b2d = document.getElementById('tabBtn2D');
+      const bSplit = document.getElementById('tabBtnSplit');
+      const b3d = document.getElementById('tabBtn3D');
+
+      const activeClass = 'px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 bg-sky-500 text-slate-950 shadow';
+      const idleClass = 'px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 text-slate-300';
+
+      b2d.className = view === '2d' ? activeClass : idleClass;
+      bSplit.className = view === 'split' ? activeClass : idleClass;
+      b3d.className = view === '3d' ? activeClass : idleClass;
+
+      if (view === '2d') {
+        p2d.classList.remove('hidden', 'h-1/2');
+        p2d.classList.add('h-full');
+        p3d.classList.add('hidden');
+      } else if (view === '3d') {
+        p2d.classList.add('hidden');
+        p3d.classList.remove('hidden', 'h-1/2');
+        p3d.classList.add('h-full');
+      } else {
+        p2d.classList.remove('hidden', 'h-full');
+        p2d.classList.add('h-1/2');
+        p3d.classList.remove('hidden', 'h-full');
+        p3d.classList.add('h-1/2');
+      }
+      setTimeout(onWindowResize, 50);
+    }
+
+    /***************************************************************************
+     * 7. EXPORTACIÓN DE CAPTURA 3D Y PLANTILLA DE SUBLIMACIÓN
+     ***************************************************************************/
+    function export3DRender() {
+      renderer.render(scene, camera);
+      const dataURL = renderer.domElement.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = 'cuaderno_sublimado_3d.png';
+      link.href = dataURL;
+      link.click();
+      showToast('Captura 3D descargada en PNG');
+    }
+
+    function downloadPrintTemplate() {
+      const isFront = activeSide === 'front';
+      const targetCanvas = isFront ? textureCanvas : backDesignCanvas;
+      const dataURL = targetCanvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = isFront
+        ? 'plantilla_sublimacion_adelante_portada.png'
+        : 'plantilla_sublimacion_atras_contraportada.png';
+      link.href = dataURL;
+      link.click();
+      showToast(`Plantilla 2D de ${isFront ? 'Adelante' : 'Atrás'} descargada`);
+    }
+
+    let toastTimeout = null;
+    function showToast(msg) {
+      const toast = document.getElementById('toastMsg');
+      const text = document.getElementById('toastText');
+      text.textContent = msg;
+      toast.classList.remove('opacity-0', 'translate-y-3');
+      toast.classList.add('opacity-100', 'translate-y-0');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-3');
+        toast.classList.remove('opacity-100', 'translate-y-0');
+      }, 2800);
+    }
+
+    /***************************************************************************
+     * 8. BUCLE DE ANIMACIÓN PRINCIPAL (WINDOW.ONLOAD)
+     ***************************************************************************/
+    function animate() {
+      requestAnimationFrame(animate);
+      if (cameraAnimState) {
+        const elapsed = performance.now() - cameraAnimState.startTime;
+        const t = Math.min(1, elapsed / cameraAnimState.duration);
+        // Suavizado cubic ease-out
+        const ease = 1 - Math.pow(1 - t, 3);
+        camera.position.lerpVectors(cameraAnimState.startPos, cameraAnimState.endPos, ease);
+        controls.target.lerpVectors(cameraAnimState.startTarget, cameraAnimState.endTarget, ease);
+        if (t >= 1) cameraAnimState = null;
+      }
+      if (controls) controls.update();
+      if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+      }
+    }
+
+    window.onload = function () {
+      lucide.createIcons();
+      init3DScene();
+      createSampleArtwork(1, 'front');
+      createSampleArtwork(2, 'back');
+      animate();
+    };
+  </script>
+</body>
+</html>
